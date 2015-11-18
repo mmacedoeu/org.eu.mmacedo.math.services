@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-stream="http://www.springframework.org/schema/integration/stream"
+	xmlns:file="http://www.springframework.org/schema/integration/file"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/integration/amqp http://www.springframework.org/schema/integration/amqp/spring-integration-amqp.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/integration/file http://www.springframework.org/schema/integration/file/spring-integration-file.xsd">
+
+	<context:property-placeholder />
+
+	<int:converter>
+		<bean class="org.eu.mmacedo.math.converter.StringGraphSearchConverter" />
+	</int:converter>
+
+	<int:converter>
+		<bean class="org.eu.mmacedo.math.converter.StringCheckSumConverter" />
+	</int:converter>
+
+	<file:inbound-channel-adapter id="graphIn"
+		directory="${graph.input.folder}" channel="toSplitter">
+		<int:poller id="poller" fixed-delay="5000" />
+	</file:inbound-channel-adapter>
+
+	<file:inbound-channel-adapter id="checksumIn"
+		directory="${checksum.input.folder}" channel="toSplitter2">
+		<int:poller id="poller" fixed-delay="5000" />
+	</file:inbound-channel-adapter>
+
+	<int:splitter input-channel="toSplitter" output-channel="graph"
+		ref="fileSplitter" method="split" />
+
+	<int:splitter input-channel="toSplitter2" output-channel="sum"
+		ref="fileSplitter" method="split" />
+
+	<bean id="fileSplitter" class="org.eu.mmacedo.math.splitter.FileSplitter" />
+
+	<int:channel id="graph" />
+	<int:channel id="sum" />
+
+	<int:service-activator input-channel="graph"
+		output-channel="loggergraph" ref="firstPathSearchHandler" method="search" />
+		
+	<int:service-activator input-channel="sum"
+		output-channel="loggersum" ref="checkSumHandler" method="call" />		
+
+	<bean id="firstPathSearchHandler" class="org.eu.mmacedo.math.service.FirstPathSearchService" />
+	<bean id="checkSumHandler" class="org.eu.mmacedo.math.service.CheckSumService"/>
+	
+	<int:logging-channel-adapter id="loggersum"
+		log-full-message="true" logger-name="resultado.sum" level="INFO" />	
+
+	<int:logging-channel-adapter id="loggergraph"
+		log-full-message="true" logger-name="resultado.graph" level="INFO" />
+
+</beans>
